@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+
+# Private / transactional routes
+Disallow: /account
+Disallow: /cart
+Disallow: /checkout
+Disallow: /orders
+Disallow: /wishlist
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+
+# The dynamic sitemap is served by the API (GET /sitemap.xml).
+Sitemap: https://api.tunmiscloset.com/sitemap.xml
