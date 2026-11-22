@@ -1,4 +1,4 @@
-.PHONY: help install backend-test backend-lint backend-check frontend-install frontend-test frontend-lint frontend-build check up
+.PHONY: help install backend-test backend-lint backend-check frontend-install frontend-test frontend-lint frontend-build check up render-config render-config-dry-run
 
 help:
 	@echo "Tunmis Closet — common tasks"
@@ -10,6 +10,8 @@ help:
 	@echo "  make frontend-lint    Run ESLint"
 	@echo "  make frontend-build   Production build (requires VITE_API_URL)"
 	@echo "  make up               Start the Docker Compose stack (Postgres + API)"
+	@echo "  make render-config    Apply render.yaml to existing Render services (needs RENDER_API_KEY)"
+	@echo "  make render-config-dry-run  Preview Render changes without applying them"
 
 install:
 	cd backend && python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
@@ -41,3 +43,9 @@ check: backend-lint backend-check backend-test frontend-lint frontend-test front
 
 up:
 	docker compose up --build
+
+render-config:
+	python3 scripts/configure_render.py
+
+render-config-dry-run:
+	python3 scripts/configure_render.py --dry-run --no-deploy

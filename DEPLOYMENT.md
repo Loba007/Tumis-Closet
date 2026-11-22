@@ -72,6 +72,30 @@ python manage.py migrate --noinput
 gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 3 --timeout 60
 ```
 
+#### Sync an already-created manual service
+
+If the web/cron services were created manually, Render does **not** apply
+`render.yaml`. `scripts/configure_render.py` reads the blueprint, pulls secrets
+from `backend/.env`, resolves `DATABASE_URL` from Render Postgres connection
+info, and patches both services through the Render API.
+
+1. Create an API key in Render → Account Settings → API Keys with read/write
+   access to services, Postgres and deploys.
+2. Install dev dependencies: `pip install -r backend/requirements-dev.txt`.
+3. Preview without changing anything:
+   ```bash
+   RENDER_API_KEY=... make render-config-dry-run
+   ```
+4. Apply and trigger deploys:
+   ```bash
+   RENDER_API_KEY=... make render-config
+   ```
+
+If auto-discovery picks the wrong resources, set `RENDER_WEB_SERVICE_ID`,
+`RENDER_CRON_SERVICE_ID` and/or `RENDER_POSTGRES_ID`. Never commit the API key.
+Use `python3 scripts/configure_render.py --no-deploy` to configure without
+triggering a deploy.
+
 ## 2. Frontend on Vercel
 
 1. Import the repo, set **Root Directory** to `frontend`.
