@@ -58,6 +58,12 @@ class ProductionConfigurationTests(SimpleTestCase):
                 PAYSTACK_MODE="test",
             )
 
+    def test_allows_missing_payment_credentials(self):
+        self.validate_production_settings(PAYSTACK_SECRET_KEY="", PAYSTACK_PUBLIC_KEY="")
+
+    def test_allows_local_media_without_cloudinary_credentials(self):
+        self.validate_production_settings(USE_CLOUDINARY=False, ALLOW_LOCAL_MEDIA=False)
+
     def test_rejects_local_frontend_origins_in_production(self):
         with self.assertRaisesRegex(ImproperlyConfigured, "must not include local origins"):
             self.validate_production_settings(

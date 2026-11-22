@@ -2,6 +2,7 @@
 Django settings for Tunmis Closet (config project).
 """
 
+import logging
 from datetime import timedelta
 from ipaddress import ip_address
 from pathlib import Path
@@ -27,6 +28,9 @@ INSECURE_SECRET_MARKERS = (
 SECRET_KEY = env("SECRET_KEY", default=DEFAULT_SECRET_KEY)
 DEBUG = env("DEBUG", default=False, cast=bool)
 ALLOWED_HOSTS = env("ALLOWED_HOSTS", default="localhost,127.0.0.1", cast=Csv())
+
+PRODUCTION_FRONTEND_ORIGIN = "https://www.tunmiscloset.com"
+LOCAL_FRONTEND_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173"
 
 # Render injects the public hostname at runtime. Keep it allow-listed
 # automatically so a fresh deploy works without hard-coding the hostname.
@@ -228,7 +232,7 @@ CORS_ALLOWED_ORIGINS = [
     origin.strip().rstrip("/")
     for origin in env(
         "CORS_ALLOWED_ORIGINS",
-        default="http://localhost:5173,http://127.0.0.1:5173",
+        default=LOCAL_FRONTEND_ORIGINS if DEBUG else PRODUCTION_FRONTEND_ORIGIN,
         cast=Csv(),
     )
     if origin.strip()
@@ -239,7 +243,7 @@ CSRF_TRUSTED_ORIGINS = [
     origin.strip().rstrip("/")
     for origin in env(
         "CSRF_TRUSTED_ORIGINS",
-        default="http://localhost:5173,http://127.0.0.1:5173",
+        default=LOCAL_FRONTEND_ORIGINS if DEBUG else PRODUCTION_FRONTEND_ORIGIN,
         cast=Csv(),
     )
     if origin.strip()
@@ -249,9 +253,14 @@ CSRF_TRUSTED_ORIGINS = [
 # Email / contact notifications
 # ---------------------------------------------------------------------------
 EMAIL_BACKEND = env(
-    "EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend"
+    "EMAIL_BACKEND",
+    default=(
+        "django.core.mail.backends.console.EmailBackend"
+        if DEBUG
+        else "django.core.mail.backends.smtp.EmailBackend"
+    ),
 )
-EMAIL_HOST = env("EMAIL_HOST", default="")
+EMAIL_HOST = env("EMAIL_HOST", default="" if DEBUG else "smtp-relay.brevo.com")
 EMAIL_PORT = env("EMAIL_PORT", default=587, cast=int)
 EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
@@ -260,7 +269,7 @@ EMAIL_USE_SSL = env("EMAIL_USE_SSL", default=False, cast=bool)
 EMAIL_TIMEOUT = env("EMAIL_TIMEOUT", default=15, cast=int)
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="no-reply@tunmiscloset.com")
 SERVER_EMAIL = env("SERVER_EMAIL", default=DEFAULT_FROM_EMAIL)
-CONTACT_EMAIL = env("CONTACT_EMAIL", default="")
+CONTACT_EMAIL = env("CONTACT_EMAIL", default="" if DEBUG else "hello@tunmiscloset.com")
 ALLOW_CONSOLE_EMAIL = env("ALLOW_CONSOLE_EMAIL", default=False, cast=bool)
 REQUIRE_EMAIL_VERIFICATION = env(
     "REQUIRE_EMAIL_VERIFICATION", default=not DEBUG, cast=bool
@@ -275,12 +284,16 @@ EMAIL_VERIFICATION_TIMEOUT = env(
 # ---------------------------------------------------------------------------
 PAYSTACK_SECRET_KEY = env("PAYSTACK_SECRET_KEY", default="")
 PAYSTACK_PUBLIC_KEY = env("PAYSTACK_PUBLIC_KEY", default="")
+PAYMENTS_ENABLED = bool(PAYSTACK_SECRET_KEY and PAYSTACK_PUBLIC_KEY)
 PAYSTACK_MODE = env("PAYSTACK_MODE", default="test").strip().lower()
 ALLOW_TEST_PAYMENTS = env("ALLOW_TEST_PAYMENTS", default=False, cast=bool)
 PAYSTACK_BASE_URL = "https://api.paystack.co"
 
 # Frontend base URL, used to build payment/email callback links
-FRONTEND_URL = env("FRONTEND_URL", default="http://localhost:5173").rstrip("/")
+FRONTEND_URL = env(
+    "FRONTEND_URL",
+    default="http://localhost:5173" if DEBUG else PRODUCTION_FRONTEND_ORIGIN,
+).rstrip("/")
 
 # ---------------------------------------------------------------------------
 # Production security
@@ -317,8 +330,6 @@ if SENTRY_DSN:
         import sentry_sdk
         from sentry_sdk.integrations.django import DjangoIntegration
     except ImportError:  # pragma: no cover - optional dependency
-        import logging
-
         logging.getLogger(__name__).warning(
             "SENTRY_DSN is set but sentry-sdk is not installed; error tracking disabled."
         )
@@ -379,11 +390,12 @@ def _is_local_url(url):
 
 
 def _validate_production_settings():
-    """Fail fast when an unsafe/incomplete configuration reaches production."""
+    """Fail fast on unsafe config; warn when optional integrations are unconfigured."""
     if DEBUG:
         return
 
     errors = []
+    warnings = []
 
     secret = SECRET_KEY or ""
     if len(secret) < 50 or secret == DEFAULT_SECRET_KEY:
@@ -432,18 +444,22 @@ def _validate_production_settings():
     if CORS_ALLOW_ALL_ORIGINS:
         errors.append("CORS_ALLOW_ALL_ORIGINS must be disabled when DEBUG=False.")
 
-    if not PAYSTACK_SECRET_KEY or len(PAYSTACK_SECRET_KEY) < 20:
-        errors.append("PAYSTACK_SECRET_KEY is required and must be a real key.")
-    if not PAYSTACK_PUBLIC_KEY or len(PAYSTACK_PUBLIC_KEY) < 20:
-        errors.append("PAYSTACK_PUBLIC_KEY is required and must be a real key.")
     if PAYSTACK_MODE not in {"test", "live"}:
         errors.append("PAYSTACK_MODE must be either 'test' or 'live'.")
+    if not (PAYSTACK_SECRET_KEY and PAYSTACK_PUBLIC_KEY):
+        warnings.append(
+            "Paystack credentials are not configured; payment endpoints are disabled."
+        )
     else:
+        if len(PAYSTACK_SECRET_KEY) < 20:
+            errors.append("PAYSTACK_SECRET_KEY must be a real key.")
+        if len(PAYSTACK_PUBLIC_KEY) < 20:
+            errors.append("PAYSTACK_PUBLIC_KEY must be a real key.")
         secret_prefix = "sk_live_" if PAYSTACK_MODE == "live" else "sk_test_"
         public_prefix = "pk_live_" if PAYSTACK_MODE == "live" else "pk_test_"
-        if PAYSTACK_SECRET_KEY and not PAYSTACK_SECRET_KEY.startswith(secret_prefix):
+        if not PAYSTACK_SECRET_KEY.startswith(secret_prefix):
             errors.append(f"PAYSTACK_SECRET_KEY must use the {PAYSTACK_MODE} key prefix.")
-        if PAYSTACK_PUBLIC_KEY and not PAYSTACK_PUBLIC_KEY.startswith(public_prefix):
+        if not PAYSTACK_PUBLIC_KEY.startswith(public_prefix):
             errors.append(f"PAYSTACK_PUBLIC_KEY must use the {PAYSTACK_MODE} key prefix.")
         if PAYSTACK_MODE == "test" and not ALLOW_TEST_PAYMENTS:
             errors.append(
@@ -452,8 +468,9 @@ def _validate_production_settings():
             )
 
     if not USE_CLOUDINARY and not ALLOW_LOCAL_MEDIA:
-        errors.append(
-            "Set USE_CLOUDINARY=True or explicitly allow local media with ALLOW_LOCAL_MEDIA=True."
+        warnings.append(
+            "Media uses local storage; uploads will not persist on an ephemeral host. "
+            "Set USE_CLOUDINARY=True with Cloudinary credentials for production."
         )
     if USE_CLOUDINARY and not all(
         CLOUDINARY_STORAGE[key] for key in ("CLOUD_NAME", "API_KEY", "API_SECRET")
@@ -480,6 +497,10 @@ def _validate_production_settings():
     if SECURE_HSTS_SECONDS <= 0:
         errors.append("SECURE_HSTS_SECONDS must be greater than zero when DEBUG=False.")
 
+    if warnings:
+        logging.getLogger(__name__).warning(
+            "Production configuration warnings:\n- " + "\n- ".join(warnings)
+        )
     if errors:
         raise ImproperlyConfigured(
             "Production configuration problems:\n- " + "\n- ".join(errors)

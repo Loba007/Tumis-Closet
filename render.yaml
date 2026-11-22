@@ -34,15 +34,15 @@ services:
           name: tunmis-closet-db
           property: connectionString
       - key: ALLOWED_HOSTS
-        sync: false
+        value: api.tunmiscloset.com,tunmis-closet-api.onrender.com
       - key: ADMIN_URL
         value: studio-admin/
       - key: FRONTEND_URL
-        sync: false
+        value: https://www.tunmiscloset.com
       - key: CORS_ALLOWED_ORIGINS
-        sync: false
+        value: https://www.tunmiscloset.com
       - key: CSRF_TRUSTED_ORIGINS
-        sync: false
+        value: https://www.tunmiscloset.com
       - key: USE_CLOUDINARY
         value: "True"
       - key: ALLOW_LOCAL_MEDIA
@@ -77,9 +77,9 @@ services:
       - key: EMAIL_USE_SSL
         value: "False"
       - key: DEFAULT_FROM_EMAIL
-        sync: false
+        value: no-reply@tunmiscloset.com
       - key: CONTACT_EMAIL
-        sync: false
+        value: hello@tunmiscloset.com
       - key: REQUIRE_EMAIL_VERIFICATION
         value: "True"
       - key: SECURE_SSL_REDIRECT
@@ -117,13 +117,13 @@ services:
           name: tunmis-closet-db
           property: connectionString
       - key: ALLOWED_HOSTS
-        sync: false
+        value: api.tunmiscloset.com,tunmis-closet-api.onrender.com
       - key: FRONTEND_URL
-        sync: false
+        value: https://www.tunmiscloset.com
       - key: CORS_ALLOWED_ORIGINS
-        sync: false
+        value: https://www.tunmiscloset.com
       - key: CSRF_TRUSTED_ORIGINS
-        sync: false
+        value: https://www.tunmiscloset.com
       - key: USE_CLOUDINARY
         value: "True"
       - key: CLOUDINARY_CLOUD_NAME
@@ -154,9 +154,9 @@ services:
       - key: EMAIL_USE_TLS
         value: "True"
       - key: DEFAULT_FROM_EMAIL
-        sync: false
+        value: no-reply@tunmiscloset.com
       - key: CONTACT_EMAIL
-        sync: false
+        value: hello@tunmiscloset.com
       - key: SECURE_SSL_REDIRECT
         value: "True"
       - key: SESSION_COOKIE_SECURE

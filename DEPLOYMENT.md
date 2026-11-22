@@ -28,25 +28,22 @@ Store the real values only in the host dashboard (Render) or an untracked
    - `tunmis-closet-api` web service (Gunicorn, health check `/health/`)
    - `tunmis-closet-expire-orders` hourly cron job
    - `tunmis-closet-db` PostgreSQL database
-3. Fill the `sync: false` environment variables in the dashboard:
+3. Fill the `sync: false` environment variables in the dashboard for **both**
+   the web service and the cron job:
 
 | Variable | Value |
 |---|---|
 | `SECRET_KEY` | `python -c "import secrets; print(secrets.token_urlsafe(64))"` |
-| `ALLOWED_HOSTS` | `api.tunmiscloset.com` (the Render hostname is added automatically) |
-| `FRONTEND_URL` | `https://www.tunmiscloset.com` |
-| `CORS_ALLOWED_ORIGINS` | `https://www.tunmiscloset.com` |
-| `CSRF_TRUSTED_ORIGINS` | `https://www.tunmiscloset.com` |
 | `CLOUDINARY_CLOUD_NAME` / `_API_KEY` / `_API_SECRET` | Cloudinary dashboard |
 | `PAYSTACK_SECRET_KEY` / `PAYSTACK_PUBLIC_KEY` | Start with `sk_test_` / `pk_test_` |
-| `EMAIL_HOST_USER` / `EMAIL_HOST_PASSWORD` | Brevo login + SMTP key |
-| `DEFAULT_FROM_EMAIL` | A verified sender, e.g. `no-reply@tunmiscloset.com` |
-| `CONTACT_EMAIL` | Inbox that should receive orders/enquiries |
+| `EMAIL_HOST_PASSWORD` | Brevo SMTP key |
 | `SENTRY_DSN` | Optional; enables error tracking |
 
-`DEBUG`, `DATABASE_URL`, security flags, `PAYSTACK_MODE`, `USE_CLOUDINARY`,
-`EMAIL_BACKEND` and `REQUIRE_EMAIL_VERIFICATION` are already set by the
-blueprint. The app refuses to boot if any required production value is unsafe.
+`DEBUG`, `DATABASE_URL`, `ALLOWED_HOSTS`, `FRONTEND_URL`, CORS/CSRF origins,
+`DEFAULT_FROM_EMAIL`, `CONTACT_EMAIL`, security flags, `PAYSTACK_MODE`,
+`USE_CLOUDINARY`, `EMAIL_BACKEND` and `REQUIRE_EMAIL_VERIFICATION` are already
+set by the blueprint. The app refuses to boot if any required production value
+is unsafe.
 
 `render.yaml` starts in **test mode** (`PAYSTACK_MODE=test`,
 `ALLOW_TEST_PAYMENTS=True`) so a public staging deploy boots with the test keys
